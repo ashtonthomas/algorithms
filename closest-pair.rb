@@ -6,10 +6,14 @@ def distance(p1, p2)
   Math.hypot(p1.x - p2.x, p1.y - p2.y)
 end
 
-def closest_bruteforce(points)
+
+
+def closest(points)
+
   mindist, minpts = Float::MAX, []
-  points.length.times do |i|
-    (i+1).upto(points.length - 1) do |j|
+  points.size.times do |i|
+
+    ((i+1)...(points.size)).each do |j|
       dist = distance(points[i], points[j])
       if dist < mindist
         mindist = dist
@@ -17,19 +21,19 @@ def closest_bruteforce(points)
       end
     end
   end
+
   [mindist, minpts]
 end
 
+
 def closest_recursive(points)
-  if points.length <= 3
-    return closest_bruteforce(points)
-  end
+
+  return closest(points) if points.size <= 3 #?
 
   xP = points.sort_by {|p| p.x}
 
-  mid = (points.length / 2.0).ceil # ceil rounds up (?) - I don't think it matters here
-  pL = xP[0,mid]
-  pR = xP[mid..-1]
+  mid = points.size/2
+  pL, pR = xP.take(mid), xP.drop(mid)
 
   dL, pairL = closest_recursive(pL)
   dR, pairR = closest_recursive(pR)
@@ -40,13 +44,30 @@ def closest_recursive(points)
     dmin, dpair = dR, pairR
   end
 
+  # Now find if closest is actually in a split pair
+  # That is, not found by the recursive call to pL, pR above
+
+  #
   yP = xP.find_all {|p| (pL[-1].x - p.x).abs < dmin}.sort_by {|p| p.y}
 
   closest = Float::MAX
   closestPair = []
   0.upto(yP.length - 2) do |i|
-    (i+1).upto(yP.length - 1) do |k|
-      break if (yP[k].y - yP[i].y) >= dmin
+
+    # this inner loop should be at most (8-1) [or] to the end
+    # this removes n-based traversal in an inner loop
+    range = [ yP.length-1, 7 ].min
+
+    # start at i+1 because we want to check
+    # the current yP[i] (outer loop) with the
+    # subsequent 7 or less points (range)
+    (i+1).upto(range) do |k|
+
+      # we know we can have at most 7 subsequent points to check,
+      # but we may have less. We check this by seeing if the y distance
+      # from our current point to the next point is greater than our delta
+      break if (yP[k].y - yP[i].y) >= dmin # skip this pair and the rest as they cannot be possible
+
       dist = distance(yP[i], yP[k])
       if dist < closest
         closest = dist
@@ -54,28 +75,26 @@ def closest_recursive(points)
       end
     end
   end
+
   if closest < dmin
     [closest, closestPair]
   else
     [dmin, dpair]
   end
+  
 end
-
-
-points = Array.new(100) {Point.new(rand, rand)}
-p ans1 = closest_bruteforce(points)
-p ans2 = closest_recursive(points)
-fail "bogus!" if ans1[0] != ans2[0]
 
 require 'benchmark'
 
+points = Array.new(100) {|i|
+  Point.new(
+  rand(0..100)*(i+1),
+  rand(0..100)*(i+1)
+  )
+}
 
-# points = Array.new(10000) {Point.new(rand, rand)}
-points = Array.new(100) {Point.new(rand, rand)}
+puts closest_recursive(points)
 
-
-
-Benchmark.bm(12) do |x|
-  x.report("bruteforce") {ans1 = closest_bruteforce(points)}
-  x.report("recursive")  {ans2 = closest_recursive(points)}
+Benchmark.bm(10) do |r|
+  r.report ("Simple:") {ans = closest_recursive(points)}
 end
